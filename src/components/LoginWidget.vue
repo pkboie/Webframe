@@ -19,7 +19,6 @@ async function handleLogin() {
     showLogin.value = false;
   } catch (err: any) {
     message.value = `❌ 登入失敗`
-    showLogin.value = false;
   } finally {
     loading.value = false
   }
@@ -43,7 +42,7 @@ async function handleLogin() {
         </label>
   
         <button type="submit" :disabled="loading">
-          {{ loading ? '登入中…' : '登入' }}
+          {{ loading ? '登入中…' : '登入/註冊' }}
         </button>
       </form>
   
