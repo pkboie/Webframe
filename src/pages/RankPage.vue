@@ -75,7 +75,7 @@ onMounted(() => {
 
 <style scoped>
 .leaderboard {
-  width: 20rem;
+  width: 100%;
   /* margin: -2rem auto; */
   overflow: hidden;
   font-family: "微軟正黑體", sans-serif;
@@ -91,7 +91,7 @@ onMounted(() => {
 /* ✅ 使用者列永遠固定於畫面最上方 */
 .User {
   position:sticky;
-  width: 20rem;
+  width: 100%;
   top: 0;
   left: 0;
   right: 0;
@@ -99,7 +99,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   background: linear-gradient(90deg, #9cdcff, #cbb4ff);
-  color: #2e2e2e;
+  /* color: #2e2e2e; */
   font-weight: bold;
   padding: 10px 14px;
   font-size: 15px;
@@ -195,11 +195,13 @@ onMounted(() => {
 
 /* 使用者所在列高亮 */
 .userRow {
-  background: linear-gradient(90deg, #fff8c2, #ffe799);
+  background: linear-gradient(90deg, #4bcde7, #5ab4c5);
   font-weight: bold;
-  border-left: 4px solid #ffda47;
+  border-left: 4px solid #0898b5;
 }
-
+.userRow  > div{
+  color: white ;
+}
 
 /* 欄位配置 */
 .rank {
