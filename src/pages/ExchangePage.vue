@@ -194,7 +194,7 @@ onMounted(async () => {
 })
 
 // 原本的 pointsIcon 改成你的圖
-const pointsIcon = ref<string>('/public/coin.png')  // ← 放到 public 下即可直接引用
+const pointsIcon = ref<string>('coin.png')  // ← 放到 public 下即可直接引用
 const isUrl = (v: string) => true  // 用圖片就固定走 <img>，簡化判斷
 </script>
 
