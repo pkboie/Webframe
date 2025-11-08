@@ -1,165 +1,163 @@
 <script setup lang="ts">
-import { ref, onUnmounted, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useAuth } from '@/composables/useAuth'
 
-const API_BASE = import.meta.env.VITE_API_BASE as string
-const API_PATH = '/api/pressence'   // 若後端是 /api/pressence，改成 '/api/pressence'
-const POLL_MS = 5000
+/* ===== Config ===== */
+const API_BASE   = import.meta.env.VITE_API_BASE as string
+const API_PATH   = '/api/pressence'               // 若後端是 /api/presence 就改這裡
+const POLL_MS    = 5000                           // 每次輪詢間隔
 const POINTS_URL = `${API_BASE}/api/points/me`
 
-
-const isActive = ref(false)
-const showPlus = ref(false)
-const randomX = ref(0)
+/* ===== UI State ===== */
+const isActive  = ref(false)
+const showPlus  = ref(false)
+const randomX   = ref(0)
 const randomDir = ref(1)
 
-const score = ref(0)
-const ANIM_COOLDOWN_MS = 4000
-let lastAnimAt = 0
-
+/* ===== Points & Polling ===== */
+const score  = ref(0)
 let pollId: number | null = null
 let hidePlusTid: number | null = null
 
+// 避免重疊與過期 tick
+let runSeq = 0;           // 每次 start/stop 會遞增，舊 tick 自動失效
+let inFlight = false;     // 正在執行中的 pollOnce
+let rerunNeeded = false;  // 執行中若又到點，收尾後補跑一次
+
+function isPolling() { return pollId !== null }
+
 function toggleColor() {
   if (isPolling()) stopAll()
-  else {
-    isActive.value = true            // << 先亮起
-    startAll()  
-  }
+  else startAll()
 }
 
-// 開始輪詢
 function startAll() {
-  // 先拿目前分數
-  fetchPoints().catch((e) => { console.error(e); stopAll() })
-  // 再開始輪詢
-  pollOnce()
-  pollId = window.setInterval(pollOnce, POLL_MS)
+  isActive.value = true
+  const seq = ++runSeq
+
+  // 先抓一次分數（非致命）
+  fetchPoints().catch((e) => console.error(e))
+
+  // 先跑一次，再固定間隔
+  pollOnce(seq)
+  pollId = window.setInterval(() => pollOnce(seq), POLL_MS)
 }
 
-
-// 停止輪詢 + 停止所有動畫
 function stopAll() {
+  runSeq++ // 讓既有/等待中的 tick 作廢
   if (pollId) { clearInterval(pollId); pollId = null }
   stopFloating()
   isActive.value = false
 }
 
-// 是否正在輪詢
-function isPolling() {
-  return pollId !== null
-}
-
-// 停止「+1」動畫
+/* ===== Animations ===== */
 function stopFloating() {
   if (hidePlusTid) { clearTimeout(hidePlusTid); hidePlusTid = null }
   showPlus.value = false
 }
 
-async function fetchPoints() {
-  const { authHeader } = useAuth()
-  const r = await fetch(POINTS_URL, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...authHeader(),
-    },
-  })
-  if (!r.ok) throw new Error(`points GET HTTP ${r.status}`)
-
-  // Swagger 標成 "string"，這裡做兼容解析
-  const raw = await r.text()
-  try {
-    const j = JSON.parse(raw)
-    if (typeof j === 'number') { score.value = j; return }
-    if (j && typeof j.points === 'number') { score.value = j.points; return }
-  } catch {}
-  // 純數字字串
-  const n = Number(raw)
-  score.value = Number.isFinite(n) ? n : 0
-}
-
-// 單次輪詢
-async function pollOnce() {
-  try {
-    const { authHeader } = useAuth()
-
-    // 取得目前定位（Promise 版本）
-    const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-      if (!('geolocation' in navigator)) {
-        reject(new Error('此裝置不支援地理定位'))
-        return
-      }
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true,
-        timeout: 10_000,
-        maximumAge: 0,
-      })
-    })
-
-    const payload = {
-      user_id: 'USER_001', // 需要的話換成實際使用者 id
-      lng: pos.coords.longitude,
-      lat: pos.coords.latitude,
-      timestamp: new Date().toISOString(),
-    }
-
-    const res = await fetch(`${API_BASE}${API_PATH}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        ...authHeader(),
-      },
-      body: JSON.stringify(payload),
-    })
-
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
-    const data: {
-      status: 'success' | 'error'
-      inRange: boolean
-      data?: { name: string; type: string; lng: number; lat: number; dist_m: number }
-    } = await res.json()
-
-    if (!data.inRange) {
-      // ❌ 不在範圍內：打斷所有動畫
-      stopAll()
-      isActive.value = false
-      return
-    }
-
-    //isActive.value = true
-    triggerPlusOne()
-    // 重新向後端拿最新分數（或你也可先本地 +1 再同步）
-    try { await fetchPoints() } catch (e) { console.error(e); stopAll() }
-
-  } catch (e) {
-      console.error('presence 請求失敗：', e)
-      stopAll() // 停動畫並取消輪詢
-    }
-}
-
-
-// 觸發一次 +1 漂浮動畫
+const ANIM_COOLDOWN_MS = 4000
+let lastAnimAt = 0
 function triggerPlusOne() {
   const now = Date.now()
-  if (now - lastAnimAt < ANIM_COOLDOWN_MS) return  // ← 節流：4 秒內只播一次
+  if (now - lastAnimAt < ANIM_COOLDOWN_MS) return // 4 秒內只播一次
   lastAnimAt = now
 
-  randomX.value = Math.random() * 100 + 50
+  randomX.value  = Math.random() * 100 + 50
   randomDir.value = Math.random() > 0.5 ? 1 : -1
   showPlus.value = true
   if (hidePlusTid) clearTimeout(hidePlusTid)
   hidePlusTid = window.setTimeout(() => (showPlus.value = false), 3500)
 }
 
+/* ===== Points API ===== */
+async function fetchPoints() {
+  const { authHeader } = useAuth()
+  const r = await fetch(POINTS_URL, { headers: { ...authHeader() } })
+  if (!r.ok) throw new Error(`points GET HTTP ${r.status}`)
+
+  // 兼容：純數字 / {"points":123} / {"data":{"points":123}}
+  const raw = await r.text()
+  try {
+    const j = JSON.parse(raw)
+    if (typeof j === 'number')               { score.value = j; return }
+    if (j && typeof j.points === 'number')   { score.value = j.points; return }
+    if (j?.data && typeof j.data.points === 'number') { score.value = j.data.points; return }
+  } catch {}
+  const n = Number(raw)
+  score.value = Number.isFinite(n) ? n : 0
+}
+
+/* ===== Presence + Points (one fetchPoints per tick) ===== */
+async function pollOnce(seq: number) {
+  if (seq !== runSeq) return           // 過期
+  if (inFlight) { rerunNeeded = true; return } // 避免重疊
+  inFlight = true
+
+  try {
+    const { authHeader } = useAuth()
+
+    // 1) 定位
+    const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+      if (!('geolocation' in navigator)) return reject(new Error('此裝置不支援地理定位'))
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true, timeout: 10_000, maximumAge: 0,
+      })
+    })
+    if (seq !== runSeq) return
+
+    // 2) Presence
+    const payload = {
+      user_id: 'USER_001',
+      lng: pos.coords.longitude,
+      lat: pos.coords.latitude,
+      timestamp: new Date().toISOString(),
+    }
+    const res = await fetch(`${API_BASE}${API_PATH}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeader() },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(`presence HTTP ${res.status}`)
+    if (seq !== runSeq) return
+
+    const data: { status: 'success'|'error'; inRange: boolean } = await res.json()
+    if (seq !== runSeq) return
+
+    // 3) ★ 每個 tick 僅呼叫一次 fetchPoints（無論 inRange 與否）
+    try { await fetchPoints() } catch (e) { console.error(e) }
+    if (seq !== runSeq) return
+
+    // 4) 不在範圍 → 立即停止（本 tick 的 fetchPoints 已完成）
+    if (!data.inRange) { stopAll(); return }
+
+    // 5) 在範圍 → 播一次動畫（含 4s 冷卻）
+    isActive.value = true
+    triggerPlusOne()
+
+  } catch (e) {
+    console.error('pollOnce failed:', e)
+    stopAll()
+  } finally {
+    inFlight = false
+    if (rerunNeeded && seq === runSeq) {
+      rerunNeeded = false
+      queueMicrotask(() => pollOnce(seq)) // 補跑一次，仍屬同一序列
+    }
+  }
+}
+
+/* ===== Lifecycle ===== */
 onMounted(() => {
-  fetchPoints().catch((e) => {
-    console.error(e)
-    // 如果抓分數失敗，不影響頁面顯示，但你也可選擇 stopAll()
-  })
+  // 進頁即抓一次分數
+  fetchPoints().catch((e) => console.error(e))
+})
+
+onUnmounted(() => {
+  stopAll()
 })
 </script>
+
 
 <template>
   <div class="btn" :class="{ active: isActive }">

@@ -30,7 +30,6 @@ type Product = {
 }
 
 /* ===== 狀態 ===== */
-const currentTag = ref<'all'|'food'|'travel'|'entertain'>('all')
 const showDialog = ref(false)
 const success = ref(false)
 const selectedProduct = ref<Product | null>(null)
@@ -43,6 +42,16 @@ const points = ref<number>(0)          // 目前點數
 const purchasing = ref<boolean>(false) // 購買中
 
 /* ===== 工具 ===== */
+function buildHeaders(base: Record<string, string> = {}) {
+  const { authHeader } = useAuth()
+  const { Authorization } = authHeader() as { Authorization?: string }
+  return {
+    ...base,
+    ...(Authorization ? { Authorization } : {}),
+  } as HeadersInit
+}
+
+
 function normalizeImg(url: string) {
   if (!url) return ''
   if (/^https?:\/\//i.test(url)) return url
@@ -56,7 +65,9 @@ async function loadMerch() {
   loading.value = true
   errorMsg.value = null
   try {
-    const r = await fetch(MERCH_URL, { headers: { Accept: 'application/json' } })
+    const r = await fetch(MERCH_URL, {
+  headers: buildHeaders({ Accept: 'application/json' })
+})
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
     const j = (await r.json()) as ApiResp
     const rows = Array.isArray(j.data) ? j.data : []
@@ -81,7 +92,9 @@ async function loadMerch() {
 /* ===== 拉 points ===== */
 async function fetchPoints() {
   const { authHeader } = useAuth()
-  const r = await fetch(POINTS_URL, { headers: { ...authHeader() } })
+  const r = await fetch(POINTS_URL, {
+  headers: buildHeaders()
+})
   if (!r.ok) throw new Error(`points GET HTTP ${r.status}`)
 
   // Swagger 標成 "string"，這裡做兼容解析
@@ -97,12 +110,21 @@ async function fetchPoints() {
 }
 
 /* ===== 篩選與對話框 ===== */
-const setFilter = (tag: 'all'|'food'|'travel'|'entertain') => { currentTag.value = tag }
+type Tag = 'all' | 'food' | 'travel' | 'entertain'
+const currentTag = ref<Tag>('all')
 
 const filteredProducts = computed(() => {
   if (currentTag.value === 'all') return products.value
-  return products.value.filter(p => p[currentTag.value])
+
+  // 縮小成不含 'all' 的鍵
+  type ValidTag = Exclude<Tag, 'all'>
+  const key = currentTag.value as ValidTag
+
+  return products.value.filter(p => p[key])
 })
+
+
+
 
 const openConfirm = (p: Product) => {
   selectedProduct.value = p
@@ -110,6 +132,10 @@ const openConfirm = (p: Product) => {
   showDialog.value = true
 }
 const closeDialog = () => { showDialog.value = false }
+
+const setFilter = (t: Tag) => {
+  currentTag.value = t
+}
 
 /* ===== 購買（兌換） ===== */
 const confirmRedeem = async () => {
@@ -123,11 +149,7 @@ const confirmRedeem = async () => {
     }
     const r = await fetch(PURCHASE_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...useAuth().authHeader(),
-      },
+      headers: buildHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(body),
     })
 
