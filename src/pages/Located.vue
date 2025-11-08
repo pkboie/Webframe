@@ -271,5 +271,6 @@ function clearRoute() {
   border: 1px solid #d7dee3; background: #5ab4c5; backdrop-filter: blur(6px);
   box-shadow: 0 4px 16px rgba(0,0,0,.12);
   cursor: pointer; font-size: .95rem; color: #ffffff;
+  z-index: 999;
 }
 </style>
