@@ -266,54 +266,40 @@ function buildPopupDOM(f: mapboxgl.MapboxGeoJSONFeature) {
   const props = f.properties as any
   const { district, venue, category } = props || {}
   const [lng, lat] = (f.geometry as any).coordinates as [number, number]
+
   const iconName = pickIconName(category)
-  const iconUrl = `/icons/${iconName}.png`
+  const iconUrl = `/icons/${iconName.replace(/^sports-/, '')}.png`
 
   const wrap = document.createElement('div')
   wrap.className = 'pop-card'
 
-  const hero = document.createElement('div')
-  hero.className = 'pop-hero'
-  const heroIcon = document.createElement('img')
-  heroIcon.className = 'pop-hero__icon'
-  heroIcon.src = iconUrl
-  heroIcon.alt = iconName
-  hero.appendChild(heroIcon)
+  // === 精簡卡片：移除經緯度，只留可計分標籤 + 置中主按鈕 ===
+  wrap.innerHTML = `
+    <div class="pop-head">
+      <img class="pop-head__icon" src="${iconUrl}" alt="${iconName}">
+      <div class="pop-head__text">
+        <div class="pop-title">${venue || '(未命名場地)'}</div>
+        <div class="pop-subtle">${district || ''}｜${category || ''}</div>
+      </div>
+    </div>
 
-  const body = document.createElement('div')
-  body.className = 'pop-body'
-  body.innerHTML = `
-    <div class="pop-title">${venue || '(未命名場地)'}</div>
-    <div class="pop-subtle">${district || ''}｜${category || ''}<br/>
-      <small>${lat.toFixed(5)}, ${lng.toFixed(5)}</small>
+    <div class="pop-meta">
+      <div class="pop-chip pop-chip--accent">可計分場域</div>
+    </div>
+
+    <div class="pop-divider"></div>
+
+    <div class="pop-actions pop-actions--center">
+      <button class="pop-btn pop-btn--primary" data-act="route">規劃路線</button>
     </div>
   `
 
-  const tags = document.createElement('div')
-  tags.className = 'pop-tags'
-  const t1 = document.createElement('span'); t1.className='pop-tag'; t1.textContent='導航'
-  const t2 = document.createElement('span'); t2.className='pop-tag'; t2.textContent='可計分場域'
-  const t3 = document.createElement('span'); t3.className='pop-tag'; t3.textContent=(category||'').slice(0,10)
-  tags.append(t1,t2,t3)
-
-  const actions = document.createElement('div'); actions.className='pop-actions'
-  const btnRoute = document.createElement('button'); btnRoute.className='pop-btn pop-btn--primary'; btnRoute.textContent='規劃路線'
-  const btnSave  = document.createElement('button'); btnSave.className='pop-btn'; btnSave.textContent='加入清單'
-
+  const btnRoute = wrap.querySelector('[data-act="route"]') as HTMLButtonElement
   btnRoute.addEventListener('click', () => {
     const q = encodeURIComponent(`${lat},${lng}`)
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${q}`, '_blank')
   })
-  btnSave.addEventListener('click', async () => {
-    btnSave.disabled = true
-    btnSave.textContent = '已加入 ✓'
-    console.log('Saved:', { venue, lng, lat })
-  })
 
-  actions.append(btnRoute, btnSave)
-  body.append(tags, actions)
-
-  wrap.append(hero, body)
   return wrap
 }
 
@@ -404,23 +390,23 @@ onMounted(async () => {
     startRippleAt(dest[0], dest[1])
 
     // 你的原本路線邏輯
-    try {
-      const pos = await getCurrentPosition()
-      const start: [number, number] = [pos.coords.longitude, pos.coords.latitude]
-      if (!userMarker) userMarker = new mapboxgl.Marker({ color: '#2c9ae0' }).setLngLat(start).addTo(map!)
-      else userMarker.setLngLat(start)
-      if (!destMarker) destMarker = new mapboxgl.Marker({ color: '#ff7a7a' }).setLngLat(dest).addTo(map!)
-      else destMarker.setLngLat(dest)
-      const route = await fetchRoute(start, dest, 'walking')
-      drawRoute(route)
-      currentDest.value = dest
-      const b = new mapboxgl.LngLatBounds()
-      b.extend(start).extend(dest)
-      map!.fitBounds(b, { padding: 60, maxZoom: 16 })
-    } catch {
-      alert('無法取得定位，路線未顯示。')
-      clearRoute()
-    }
+    // try {
+    //   const pos = await getCurrentPosition()
+    //   const start: [number, number] = [pos.coords.longitude, pos.coords.latitude]
+    //   if (!userMarker) userMarker = new mapboxgl.Marker({ color: '#2c9ae0' }).setLngLat(start).addTo(map!)
+    //   else userMarker.setLngLat(start)
+    //   if (!destMarker) destMarker = new mapboxgl.Marker({ color: '#ff7a7a' }).setLngLat(dest).addTo(map!)
+    //   else destMarker.setLngLat(dest)
+    //   const route = await fetchRoute(start, dest, 'walking')
+    //   drawRoute(route)
+    //   currentDest.value = dest
+    //   const b = new mapboxgl.LngLatBounds()
+    //   b.extend(start).extend(dest)
+    //   map!.fitBounds(b, { padding: 60, maxZoom: 16 })
+    // } catch {
+    //   alert('無法取得定位，路線未顯示。')
+    //   clearRoute()
+    // }
   })
 
   map.on('mouseenter', LAYER_ID, () => { map!.getCanvas().style.cursor = 'pointer' })
@@ -544,6 +530,113 @@ function clearRoute() {
 
 
 <style scoped>
+/* --- 主題變數（高對比版）--- */
+:root{
+  --pop-bg:#624f4f;
+  --pop-fg:#0b1220;
+  --pop-subtle:#475569;
+  --pop-accent:#1e40af;      /* 主按鈕顏色 */
+  --pop-accent-weak:#18191b; /* chip 淡底 */
+  --pop-border:#8fb5ff;
+  --pop-shadow:0 10px 22px rgba(2,6,23,.10);
+  --pop-radius:12px;
+  --pop-btn-radius:10px;
+}
+
+/* 卡片本體：更小 */
+:global(.mapboxgl-popup.popup--elev) .pop-card{
+  width: clamp(220px, 30vw, 300px);  /* ← 縮小 */
+  background:var(--pop-bg);
+  color:var(--pop-fg);
+  border:1px solid var(--pop-border);
+  border-radius:var(--pop-radius);
+  box-shadow:var(--pop-shadow);
+  overflow:hidden;
+  display:grid;
+}
+
+/* header：縮小 icon 與間距 */
+:global(.pop-head){
+  display:grid;
+  grid-template-columns:40px 1fr;   /* ← 48px -> 40px */
+  gap:10px;                         /* ← 12 -> 10 */
+  padding:12px 14px 4px;            /* ← 更緊湊 */
+  align-items:center;
+}
+:global(.pop-head__icon){
+  width:40px;height:40px;object-fit:contain;
+  filter: drop-shadow(0 3px 8px rgba(0,0,0,.12));
+}
+:global(.pop-title){
+  font-size:1rem;                   /* ← 1.05 -> 1.0 */
+  font-weight:800; line-height:1.2;
+}
+:global(.pop-subtle){
+  color:var(--pop-subtle); font-size:.88rem; margin-top:4px;
+}
+
+/* chips：保留一顆「可計分場域」 */
+:global(.pop-meta){
+  display:flex; gap:6px; flex-wrap:wrap;
+  padding:0 14px 8px 14px;
+}
+:global(.pop-chip){
+  font-size:.75rem; padding:4px 10px;
+  border-radius:999px; border:1px solid var(--pop-border);
+  background:#afc6de; color:var(--pop-fg);
+}
+:global(.pop-chip--accent){
+  background:var(--pop-accent-weak);
+  color:var(--pop-accent); border-color:transparent; font-weight:700;
+}
+
+/* 分隔線更細 */
+:global(.pop-divider){ height:1px; background:var(--pop-border); margin:2px 0; }
+
+/* 置中單顆按鈕 + 固定寬度 */
+:global(.pop-actions){ padding:10px 14px 12px; }
+:global(.pop-actions--center){
+  display:flex; justify-content:center; align-items:center;
+  color:#cfb6b6;
+}
+:global(.pop-btn){
+  appearance:none; cursor:pointer;
+  border-radius:var(--pop-btn-radius);
+  font-weight:800; font-size:.95rem;
+  padding:10px 14px;
+  color:#171414;
+  transition: filter .15s ease, transform .02s ease;
+}
+:global(.pop-btn--primary){
+  background:var(--pop-accent); color:#a35757; border:1px solid var(--pop-accent);
+  min-width: 180px;              /* ← 置中時有個穩定寬度 */
+}
+:global(.pop-btn:hover){ filter:brightness(1.05); }
+:global(.pop-btn:active){ transform:translateY(1px); }
+
+/* popup 氣泡本體保持透明外框 */
+:global(.mapboxgl-popup.popup--elev) .mapboxgl-popup-content{
+  padding:0; background:transparent; border-radius:var(--pop-radius); box-shadow:none;
+}
+:global(.mapboxgl-popup.popup--elev) .mapboxgl-popup-tip{
+  border-top-color:var(--pop-bg) !important;
+  border-bottom-color:var(--pop-bg) !important;
+}
+
+/* 深色模式（可留可改） */
+@media (prefers-color-scheme: dark){
+  :root{
+    --pop-bg:#0b1220; --pop-fg:#e6edf6; --pop-subtle:#a2b3c9;
+    --pop-accent:#60a5fa; --pop-accent-weak:#203058; --pop-border:#1f2a37;
+    --pop-shadow:0 10px 28px rgba(0,0,0,.5);
+  }
+  :global(.pop-chip){ background:#cadbff; color:var(--pop-fg); border-color:var(--pop-border); }
+  :global(.mapboxgl-popup.popup--elev) .mapboxgl-popup-tip{
+    border-top-color:var(--pop-bg) !important; border-bottom-color:var(--pop-bg) !important;
+  }
+}
+
+
 .page { position: relative; width: 100%; height: calc(100vh - 2rem); }
 .map { width: 100%; height: 96%; }
 
@@ -551,9 +644,9 @@ function clearRoute() {
 .fab {
   position: absolute; left: 12px; bottom: 3rem;
   padding: .55rem .9rem; border-radius: 999px;
-  border: 1px solid #d7dee3; background: #5ab4c5; backdrop-filter: blur(6px);
-  box-shadow: 0 4px 16px rgba(0,0,0,.12);
-  cursor: pointer; font-size: .95rem; color: #ffffff;
+  border: 1px solid #475259; background: #2c9ae0; backdrop-filter: blur(6px);
+  box-shadow: 0 4px 16px rgba(66, 35, 35, 0.12);
+  cursor: pointer; font-size: .95rem; color: #d7dee3;
   z-index: 999;
 }
 </style>
