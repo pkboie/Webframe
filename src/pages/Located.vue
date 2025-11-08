@@ -20,18 +20,21 @@ const raw = {
 // 3) 轉成 GeoJSON
 function toGeoJSON(src: typeof raw) {
   const idxs = Object.keys(src.data.行政區)
-  const features = idxs.map((k) => ({
-    type: 'Feature',
-    geometry: {
-      type: 'Point',
-      coordinates: [src.data.經度[k as any], src.data.緯度[k as any]]
-    },
-    properties: {
-      district: src.data.行政區[k as any],
-      site: src.data.場地[k as any],
-      category: src.data.類別[k as any]
+  const features = idxs.map((k) => {
+    const i = Number(k)
+    return {
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: [(src.data.經度 as any)[i], (src.data.緯度 as any)[i]]
+      },
+      properties: {
+        district: (src.data.行政區 as any)[i],
+        site: (src.data.場地 as any)[i],
+        category: (src.data.類別 as any)[i]
+      }
     }
-  }))
+  })
   return { type: 'FeatureCollection', features } as GeoJSON.FeatureCollection
 }
 

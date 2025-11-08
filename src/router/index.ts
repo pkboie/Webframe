@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 
 // 頁面元件（示範）— 你已有 MapView，可直接用
-import LocatedPage from '@/pages/LocatedPage.vue'
+import LocatedPage from '@/pages/Located.vue'
 import PointsPage from '@/pages/PointsPage.vue'
 import ExchangePage from '@/pages/ExchangePage.vue'
 import RankPage from '@/pages/RankPage.vue'
