@@ -193,15 +193,15 @@ const districts = computed(() => {
 /* ===== Halo（固定公尺半徑） ===== */
 function radiusMetersByCategory(cat = '') {
   const c = String(cat).toLowerCase()
-  if (c.includes('籃球')) return 60
-  if (c.includes('羽球') || c.includes('badminton')) return 40
-  if (c.includes('網球') || c.includes('tenniss')) return 50
-  if (c.includes('棒球') || c.includes('壘球')) return 90
-  if (c.includes('足球') || c.includes('soccer')) return 120
-  if (c.includes('溜冰') || c.includes('滑板') || c.includes('競速')) return 50
-  if (c.includes('槌球')) return 45
-  if (c.includes('排球')) return 50
-  return 60
+  if (c.includes('籃球')) return 25
+  if (c.includes('羽球') || c.includes('badminton')) return 25
+  if (c.includes('網球') || c.includes('tenniss')) return 25
+  if (c.includes('棒球') || c.includes('壘球')) return 25
+  if (c.includes('足球') || c.includes('soccer')) return 25
+  if (c.includes('溜冰') || c.includes('滑板') || c.includes('競速')) return 25
+  if (c.includes('槌球')) return 25
+  if (c.includes('排球')) return 25
+  return 25
 }
 
 function buildHaloPolygons(pointFC: GeoJSON.FeatureCollection) {
@@ -373,6 +373,46 @@ onMounted(async () => {
     updateHalo()
 
     applyFilter()
+
+    // 3) 一開始嘗試抓使用者定位；失敗則維持台北市預設中心
+  try {
+    const pos = await getCurrentPosition({ enableHighAccuracy: true, timeout: 8000 })
+    const userLngLat: [number, number] = [pos.coords.longitude, pos.coords.latitude]
+
+    // 放/更新使用者 marker
+    if (!userMarker) {
+      userMarker = new mapboxgl.Marker({ color: '#2c9ae0' })
+        .setLngLat(userLngLat)
+        .addTo(map!)
+    } else {
+      userMarker.setLngLat(userLngLat)
+    }
+
+    // 可選：畫一個「精度圈」（GPS 誤差），需要 turf
+    const acc = Math.max(10, Math.min(pos.coords.accuracy || 50, 100)) // 10~100m 之間
+    const accCircle = turf.circle(userLngLat, acc, { steps: 64, units: 'meters' })
+    const ACC_SRC = 'me-accuracy-src'
+    const ACC_LAYER = 'me-accuracy-fill'
+    if (!map!.getSource(ACC_SRC)) {
+      map!.addSource(ACC_SRC, { type: 'geojson', data: accCircle as any })
+      map!.addLayer({
+        id: ACC_LAYER,
+        type: 'fill',
+        source: ACC_SRC,
+        paint: { 'fill-color': '#2c9ae0', 'fill-opacity': 0.15 }
+      })
+    } else {
+      (map!.getSource(ACC_SRC) as mapboxgl.GeoJSONSource).setData(accCircle as any)
+    }
+
+    // 置中並稍微放大
+    map!.flyTo({ center: userLngLat, zoom: Math.max(map!.getZoom(), 14), speed: 0.8, curve: 1.4 })
+  } catch (err) {
+    // 若使用者拒絕/逾時：就維持台北市預設 center，[121.5654, 25.0330]
+    // 也可以在這裡顯示一個小提示（可選）
+    console.warn('定位失敗，使用預設台北市中心', err)
+  }
+
   })
 
   // 點擊：彈卡片 + 漣漪 + 規劃路線（沿用你的路線流程）
@@ -507,16 +547,46 @@ function clearRoute() {
   userMarker = destMarker = null
   currentDest.value = null
 }
+
+async function centerToMe() {
+  try {
+    const pos = await getCurrentPosition({ enableHighAccuracy: true, timeout: 8000 })
+    const userLngLat: [number, number] = [pos.coords.longitude, pos.coords.latitude]
+
+    if (!userMarker) {
+      userMarker = new mapboxgl.Marker({ color: '#2c9ae0' })
+        .setLngLat(userLngLat)
+        .addTo(map!)
+    } else {
+      userMarker.setLngLat(userLngLat)
+    }
+
+    // 若你有畫精度圈，也順便更新
+    const acc = Math.max(10, Math.min(pos.coords.accuracy || 50, 100))
+    const accCircle = turf.circle(userLngLat, acc, { steps: 64, units: 'meters' })
+    const ACC_SRC = 'me-accuracy-src'
+    if (map!.getSource(ACC_SRC)) {
+      (map!.getSource(ACC_SRC) as mapboxgl.GeoJSONSource).setData(accCircle as any)
+    }
+
+    map!.flyTo({ center: userLngLat, zoom: Math.max(map!.getZoom(), 14), speed: 0.8, curve: 1.4 })
+  } catch {
+    alert('無法取得定位（請確認瀏覽器權限與 HTTPS）。')
+  }
+}
+
 </script>
 
 <template>
   <section class="page">
     <div class="map" ref="mapEl" />
 
-    <!-- 左下角浮動按鈕 -->
-    <button class="fab" @click="openFilter">篩選</button>
+    <!-- 左下角按鈕堆疊 -->
+    <div class="fab-stack">
+      <button class="fab" @click="openFilter">篩選</button>
+      <button class="fab fab-my" @click="centerToMe">我的位置</button>
+    </div>
 
-    <!-- 篩選彈窗 -->
     <FilterModal
       :open="modalOpen"
       :categories="categories"
@@ -528,7 +598,6 @@ function clearRoute() {
     />
   </section>
 </template>
-
 
 <style scoped>
 /* --- 主題變數（高對比版）--- */
@@ -642,12 +711,35 @@ function clearRoute() {
 .map { width: 100%; height: 96%; }
 
 /* 左下角浮動按鈕 */
-.fab {
-  position: absolute; left: 12px; bottom: 3rem;
-  padding: .55rem .9rem; border-radius: 999px;
-  border: 1px solid #475259; background: #2c9ae0; backdrop-filter: blur(6px);
-  box-shadow: 0 4px 16px rgba(66, 35, 35, 0.12);
-  cursor: pointer; font-size: .95rem; color: #d7dee3;
+/* 左下角按鈕堆疊容器 */
+.fab-stack{
+  position: absolute;
+  left: 12px;
+  bottom: 3rem;
+  display: flex;
+  flex-direction: column;   /* 直向 */
+  gap: 10px;                /* 這裡控制兩顆鈕距離 */
   z-index: 999;
 }
+
+/* 單顆 FAB 樣式（把定位交給容器就好） */
+.fab {
+  position: static;               /* 重要：由 .fab-stack 負責定位 */
+  padding: .55rem .9rem;
+  border-radius: 999px;
+  border: 1px solid #475259;
+  background: #2c9ae0;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 16px rgba(66, 35, 35, 0.12);
+  cursor: pointer;
+  font-size: .95rem;
+  color: #d7dee3;
+}
+
+/* 第二顆可微調色彩（可選） */
+.fab-my{
+  background: #0ea5e9;
+  border-color: #3b82f6;
+}
+
 </style>
