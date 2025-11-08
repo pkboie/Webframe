@@ -170,12 +170,19 @@ onMounted(async () => {
     // 如果抓分數失敗，不影響頁面顯示
   }
 })
+
+// 原本的 pointsIcon 改成你的圖
+const pointsIcon = ref<string>('/public/coin.png')  // ← 放到 public 下即可直接引用
+const isUrl = (v: string) => true  // 用圖片就固定走 <img>，簡化判斷
 </script>
 
 
 <template>
   <!-- 目前點數 -->
-  <div class="points-bar">目前點數：{{ points }}</div>
+  <div class="points-left">
+    <img :src="pointsIcon" alt="coin" class="points-icon" />
+    <span class="points-title">目前點數：{{ points }}</span>
+  </div>
 
   <div class="redeem-page">
     <!-- 商品區塊 -->
@@ -260,13 +267,31 @@ onMounted(async () => {
 
 
 <style scoped>
-.points-bar{
-  padding: .6rem 1rem;
-  background:#fff;
-  border-bottom:1px solid #eee;
-  font-weight:700;
+/* 讓圖示跟文字差不多大，隨字體大小縮放 */
+.points-left { 
+  display: flex; 
+  align-items: baseline;   /* 與數字/文字的基線對齊 */
+  gap: 10px;
+  font-size: 16px;         /* 你也可以用 clamp() 做自適應 */
 }
 
+.points-title{
+  font-weight: 800;
+  color: #123053;
+  letter-spacing: .2px;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+/* 關鍵：用 em 當單位，隨字體大小一起變動 */
+.points-icon{
+  width: 1.15em;           /* 跟文字等高，微微大一點看起來更剛好 */
+  height: 1.15em;
+  object-fit: contain;
+  vertical-align: baseline; /* 和字的基線對齊 */
+  transform: translateY(1px); /* 微調，讓視覺更居中；可視需要 ±1px */
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.10));
+}
 
 .redeem-page {
   display: flex;
