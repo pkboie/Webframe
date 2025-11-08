@@ -48,7 +48,10 @@ const iconExpression: any = [
   ['case',
 
     // 籃球
-    ['>=', ['index-of', '籃球', ['var', 'cat']], 0], 'basketball',
+    ['any',
+      ['>=', ['index-of', '籃球', ['var', 'cat']], 0],
+      ['>=', ['index-of', 'basketbal', ['var', 'cat']], 0]
+    ], 'basketbal' ,
 
     // 羽球 / badminton
     ['any',
@@ -56,21 +59,21 @@ const iconExpression: any = [
       ['>=', ['index-of', 'badminton', ['var', 'cat']], 0]
     ], 'badminton',
 
-    // 網球 / 練習壁 / tennis
+    // 網球 / 練習壁 / tenniss
     ['any',
       ['>=', ['index-of', '網球', ['var', 'cat']], 0],
       ['>=', ['index-of', '練習壁', ['var', 'cat']], 0],
-      ['>=', ['index-of', 'tennis', ['var', 'cat']], 0]
-    ], 'tennis',
+      ['>=', ['index-of', 'tenniss', ['var', 'cat']], 0]
+    ], 'tenniss',
 
-    // 棒球 / 壘球 / 棒壘球 / baseball / softball
+    // 棒球 / 壘球 / 棒壘球 / basebal / softball
     ['any',
       ['>=', ['index-of', '棒球', ['var', 'cat']], 0],
       ['>=', ['index-of', '壘球', ['var', 'cat']], 0],
       ['>=', ['index-of', '棒壘球', ['var', 'cat']], 0],
-      ['>=', ['index-of', 'baseball', ['var', 'cat']], 0],
+      ['>=', ['index-of', 'basebal', ['var', 'cat']], 0],
       ['>=', ['index-of', 'softball', ['var', 'cat']], 0]
-    ], 'baseball',
+    ], 'basebal',
 
     // 足球
     ['any',
@@ -86,10 +89,12 @@ const iconExpression: any = [
     ], 'roller-skater',
 
     // 槌球
-    ['>=', ['index-of', '槌球', ['var', 'cat']], 0], 'croquet',
+    ['any',
+      ['>=', ['index-of', '槌球', ['var', 'cat']], 0]], 'croquet',
 
     // 排球
-    ['>=', ['index-of', '排球', ['var', 'cat']], 0], 'block',
+    ['any',
+      ['>=', ['index-of', '排球', ['var', 'cat']], 0]], 'block',
 
     // default
     FALLBACK_ICON
@@ -109,13 +114,13 @@ async function ensureIconsLoaded() {
       })
     })
   await Promise.all([
-    loadAndAdd('tennis',         '/icons/tennis.png'),
+    loadAndAdd('basketbal',     '/icons/basketbal.png'),
+    loadAndAdd('tenniss',         '/icons/tenniss.png'),
     loadAndAdd('soccer-player',  '/icons/soccer-player.png'),
     loadAndAdd('roller-skater',  '/icons/roller-skater.png'),
     loadAndAdd('croquet',        '/icons/croquet.png'),
     loadAndAdd('block',          '/icons/block.png'),
-    loadAndAdd('basketball',     '/icons/basketball.png'),
-    loadAndAdd('baseball',       '/icons/baseball.png'),
+    loadAndAdd('basebal',       '/icons/basebal.png'),
     loadAndAdd('badminton',      '/icons/badminton.png'),
     loadAndAdd(FALLBACK_ICON,    `/icons/${FALLBACK_ICON}.png`),
   ])
@@ -190,7 +195,7 @@ function radiusMetersByCategory(cat = '') {
   const c = String(cat).toLowerCase()
   if (c.includes('籃球')) return 60
   if (c.includes('羽球') || c.includes('badminton')) return 40
-  if (c.includes('網球') || c.includes('tennis')) return 50
+  if (c.includes('網球') || c.includes('tenniss')) return 50
   if (c.includes('棒球') || c.includes('壘球')) return 90
   if (c.includes('足球') || c.includes('soccer')) return 120
   if (c.includes('溜冰') || c.includes('滑板') || c.includes('競速')) return 50
@@ -223,7 +228,7 @@ function updateHalo() {
       'case',
       ['in', '籃球', ['get', 'category']], '#e76f51',
       ['any', ['in', '羽球', ['get', 'category']], ['in', 'badminton', ['downcase', ['get','category']]]], '#2a9d8f',
-      ['any', ['in', '網球', ['get', 'category']], ['in', 'tennis', ['downcase', ['get','category']]], ['in', '練習壁', ['get','category']]], '#f4a261',
+      ['any', ['in', '網球', ['get', 'category']], ['in', 'tenniss', ['downcase', ['get','category']]], ['in', '練習壁', ['get','category']]], '#f4a261',
       ['any', ['in', '棒球', ['get', 'category']], ['in', '壘球', ['get', 'category']]], '#457b9d',
       ['any', ['in', '足球', ['get', 'category']], ['in', 'soccer', ['downcase', ['get','category']]]], '#718355',
       ['any', ['in', '溜冰', ['get','category']], ['in', '滑板', ['get','category']], ['in', '競速', ['get','category']]], '#8d99ae',
@@ -246,10 +251,10 @@ function updateHalo() {
 /* ===== Popup 組裝 ===== */
 function pickIconName(category = '') {
   const c = String(category).toLowerCase()
-  if (c.includes('籃球')) return 'basketball'
+  if (c.includes('籃球')) return 'basketbal'
   if (c.includes('羽球') || c.includes('badminton')) return 'badminton'
-  if (c.includes('網球') || c.includes('tennis') || c.includes('練習壁')) return 'tennis'
-  if (c.includes('棒球') || c.includes('壘球') || c.includes('棒壘球') || c.includes('baseball') || c.includes('softball')) return 'baseball'
+  if (c.includes('網球') || c.includes('tenniss') || c.includes('練習壁')) return 'tenniss'
+  if (c.includes('棒球') || c.includes('壘球') || c.includes('棒壘球') || c.includes('basebal') || c.includes('softball')) return 'basebal'
   if (c.includes('足球') || c.includes('soccer')) return 'soccer-player'
   if (c.includes('溜冰') || c.includes('滑板') || c.includes('競速')) return 'roller-skater'
   if (c.includes('槌球')) return 'croquet'
@@ -424,6 +429,7 @@ onMounted(async () => {
   await loadDataset()
   selectedCats.value = [...categories.value]
   selectedDists.value = [...districts.value]
+  
 })
 
 onBeforeUnmount(() => {
