@@ -16,18 +16,25 @@ export interface pressencePayload {
  */
 export async function sendpressence(payload: pressencePayload): Promise<void> {
   const { authHeader } = useAuth()
-  const headers = {
+  const { Authorization } = authHeader() as { Authorization?: string }
+
+  // ✅ 一次性安全 headers 建立：只有在 token 存在時才加入
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...authHeader(), // 自動附上 Bearer token
   }
+  if (Authorization) headers['Authorization'] = Authorization
 
   try {
-    await fetch(`${API_BASE}/api/pressence`, {
+    const res = await fetch(`${API_BASE}/api/pressence`, {
       method: 'POST',
       headers,
       body: JSON.stringify(payload),
     })
-    // 不處理回傳（成功即可）
+
+    if (!res.ok) {
+      const msg = `HTTP ${res.status} ${res.statusText}`
+      console.error('❌ 傳送 pressence 失敗：', msg)
+    }
   } catch (err) {
     console.error('❌ 傳送 pressence 失敗：', err)
   }
