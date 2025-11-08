@@ -12,7 +12,9 @@ onMounted(() => {
   <div id="app">
     <NaviBar />
     <main>
+      <!-- <RouterView /> -->
       <RouterView />
+
     </main>
   </div>
 </template>
@@ -20,6 +22,9 @@ onMounted(() => {
 <style scoped>
 l{
   color: red;
+}
+main{
+  margin: 0;
 }
 </style>
 
