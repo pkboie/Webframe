@@ -2,6 +2,7 @@
 import { onMounted } from 'vue'
 import NaviBar from './components/NaviBar.vue'
 import MapView from './components/MapView.vue'
+import LoginWidget from './components/LoginWidget.vue'
   
 onMounted(() => {
   console.log('App component mounted')
@@ -10,6 +11,7 @@ onMounted(() => {
 
 <template>
   <div id="app">
+    <LoginWidget />
     <NaviBar />
     <main>
       <!-- <RouterView /> -->
