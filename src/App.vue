@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted } from 'vue'
 import NaviBar from './components/NaviBar.vue'
+import MapView from './components/MapView.vue'
 
 onMounted(() => {
   console.log('App component mounted')
@@ -11,8 +12,7 @@ onMounted(() => {
   <div id="app">
     <NaviBar />
     <main>
-      <h1>Welcome to the Vue.js Application</h1>
-      <p>This is the main content area.</p>
+      <MapView />
     </main>
   </div>
 </template>
@@ -21,6 +21,9 @@ onMounted(() => {
 body {
   margin: 0;
   padding: 0;
+}
+l{
+  color: red;
 }
 </style>
 

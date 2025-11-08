@@ -11,7 +11,7 @@
 
 <style scoped>
 .navi-bar {
-  background-color: #000000;
+  background-color: #5ab4c5;
   padding: 2rem;
 }
 .navi-list {
@@ -24,7 +24,7 @@
   padding: 0;
 }
 .navi-item a {
-  color: rgb(255, 0, 0);
+  color: #ffffff;
   text-decoration: none;
 }
 </style>
