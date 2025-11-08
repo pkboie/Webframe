@@ -340,10 +340,11 @@ onMounted(async () => {
   map = new mapboxgl.Map({
     container: mapEl.value!,
     style: 'mapbox://styles/mapbox/streets-v12',
-    center: [121.535, 25.114],
-    zoom: 14,
+    center: [121.5654, 25.0330],  // 🌟 台北市中心 (台北市政府附近)
+    zoom: 12,                     // 建議 zoom 12～13：能看到整個台北市
     attributionControl: false,
   })
+
   map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right')
 
   map.on('load', async () => {
