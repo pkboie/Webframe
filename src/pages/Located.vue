@@ -131,8 +131,7 @@ let destMarker: mapboxgl.Marker | null = null
 const currentDest = ref<[number, number] | null>(null)
 
 /* ===== 後端資料（外層 data: [...]） ===== */
-const API_BASE = ''
-const DATA_URL = `${API_BASE}/api/dataset`
+const DATA_URL = `${VITE_API_BASE}/api/dataset`
 
 type Row = {
   id: number
