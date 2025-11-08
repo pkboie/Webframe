@@ -288,41 +288,17 @@ function selectAllDists(all: boolean) {
   </section>
 </template>
 
+
 <style scoped>
-.page {
-  position: relative;
-  width: 100%;
-  height: calc(100vh - 2rem);
-  font-family: "Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif;
-}
-.map { width: 100%; height: 70%; }
+.page { position: relative; width: 100%; height: calc(100vh - 2rem); }
+.map { width: 100%; height: 80%; }
 
-/* 底部 Filter Bar */
-.filter-bar {
-  position: relative;
-  left: 0; right: 0; bottom: 0;
-  background: rgba(255,255,255,.96);
-  border-top: 1px solid #eee;
-  backdrop-filter: blur(6px);
-  padding: .75rem .9rem 1rem;
-  display: grid;
-  gap: .9rem;
+/* 左下角浮動按鈕 */
+.fab {
+  position: relative; left: 12px; top: 1rem;
+  padding: .55rem .9rem; border-radius: 999px;
+  border: 1px solid #d7dee3; background: #5ab4c5; backdrop-filter: blur(6px);
+  box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  cursor: pointer; font-size: .95rem; color: #ffffff;
 }
-
-/* 區塊標題 & 操作 */
-.group { display: grid; gap: .5rem; }
-.group-head {
-  display: flex; align-items: center; justify-content: space-between;
-}
-.bar-title { font-size: .95rem; color: #475259; font-weight: 600; }
-.actions { display: inline-flex; gap: .5rem; }
-.btn {
-  font-size: .8rem; padding: .25rem .5rem; border-radius: 6px; border: 1px solid #d7dee3;
-  background: #2c9ae0; cursor: pointer;
-}
-
-/* 勾選列 */
-.checks { display: flex; flex-wrap: wrap; gap: .5rem .75rem; }
-.check { display: inline-flex; align-items: center; gap: .35rem; font-size: .95rem; color: #333; }
-.check input { accent-color: #2c9ae0; }
 </style>
