@@ -3,36 +3,37 @@ import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
-// https://vite.dev/config/
 export default defineConfig(({ mode }) => {
-  // 讀取對應環境檔 (.env, .env.development, .env.production)
-  const env = loadEnv(mode, process.cwd(), '')
+  const env = loadEnv(mode, process.cwd(), '') as Record<string, string>
+  // 允許空值；只在是 http(s) 才啟用 proxy
+  const rawBase = env.VITE_API_BASE ?? ''
+  const isHttp = /^https?:\/\//i.test(rawBase)
+  const API_BASE = isHttp ? rawBase.replace(/\/+$/, '') : '' // 去尾斜線
 
-  // 這樣就能安全取用 VITE_API_BASE
-  const API_BASE = env.VITE_API_BASE
+  const proxy = isHttp
+    ? {
+        '/api': {
+          target: API_BASE,
+          changeOrigin: true,
+          // 如果後端實際路徑就是 /api，無需 rewrite
+          // 若前端 /api 要打到後端根目錄，改用：
+          // rewrite: (p: string) => p.replace(/^\/api/, ''),
+        },
+      }
+    : undefined
 
   return {
-    plugins: [
-      vue(),
-      vueDevTools(),
-    ],
+    plugins: [vue(), vueDevTools()],
     resolve: {
-      alias: {
-        '@': fileURLToPath(new URL('./src', import.meta.url))
-      },
+      alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     },
     server: {
       port: 5173,
-      proxy: {
-        '/api': {
-          target: `${API_BASE}`,      // ✅ 改成這裡
-          changeOrigin: true,
-          // 例如後端是 http://localhost:8000/api/...
-          // 若你要讓 /api 自動對應到後端 /api，
-          // 可以留著這行
-          // rewrite: (path) => path.replace(/^\/api/, '/api'),
-        },
-      },
+      proxy, // 只有在 VITE_API_BASE 合法時才會設定
+    },
+    // 可選：把變數注入前端（若需要在程式碼中讀）
+    define: {
+      __API_BASE__: JSON.stringify(API_BASE),
     },
   }
 })
