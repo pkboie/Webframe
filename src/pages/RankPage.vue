@@ -61,31 +61,48 @@
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted, shallowRef, computed } from "vue"
 
-const allPlayers = shallowRef(
-  Array.from({ length: 47 }, (_, i) => ({
-    rank: i + 1,
-    name: `Player${i + 1}`,
-    score: 10000 - i * 50,
-  }))
-)
+<script setup lang="ts">
+import { ref, computed, onMounted, shallowRef } from 'vue'
+import { useAuth } from '@/composables/useAuth'
 
-const user = ref({
-  name: "Player23",
-  rank: 23,
-  score: 10000 - 22 * 50,
-})
+/* ===== API ===== */
+const API_BASE = (import.meta.env.VITE_API_BASE as string) || ''
+const GET_ALL_SCORES_URL = `${API_BASE}/api/getallscores`
 
+type ApiRow = { id: number; Username: string; Points: number }
+type ApiResp = { data: ApiRow[] }
+
+type Player = { rank: number; name: string; score: number }
+
+/* ===== 狀態 ===== */
+const loading = ref(false)
+const errorMsg = ref<string | null>(null)
+
+/** 排行資料（映射後） */
+const allPlayers = shallowRef<Player[]>([])
+
+/** 使用者資料（會嘗試套用登入者名稱） */
+const user = ref<Player>({ name: '—', rank: 0, score: 0 })
+
+/** 顯示前 N 名；資料量不大時直接全顯示 */
 const displayedPlayers = computed(() => {
   const data = allPlayers.value
   return data.length > 100 ? data.slice(0, 100) : data
 })
 
+/* ===== UI 輔助 ===== */
+const maxScore = computed(() =>
+  Math.max(...displayedPlayers.value.map(p => p.score || 0), 1)
+)
+const scorePct = (s: number) => Math.round((s / maxScore.value) * 100)
+const medalClass = (rank: number) =>
+  rank === 1 ? 'is-gold' : rank === 2 ? 'is-silver' : rank === 3 ? 'is-bronze' : ''
+
+/* ===== 目前使用者高亮（保持你原本的行為） ===== */
 const isUserHighlighted = ref(false)
-const rankDisplay = ref(null)
-const userRow = ref(null)
+const rankDisplay = ref<HTMLElement | null>(null)
+const userRow = ref<HTMLElement | null>(null)
 
 const handleScroll = () => {
   if (!userRow.value || !rankDisplay.value) return
@@ -94,17 +111,74 @@ const handleScroll = () => {
   isUserHighlighted.value = userTop >= listRect.top && userTop <= listRect.bottom
 }
 
-onMounted(() => handleScroll())
+/* ===== 取資料並映射 ===== */
+function mapApiToPlayers(rows: ApiRow[]): Player[] {
+  // 避免髒資料：只吃有 Username、Points 的列
+  const clean = rows
+    .filter(r => r && typeof r.Username === 'string' && Number.isFinite(r.Points))
+    .map(r => ({ name: r.Username, score: Number(r.Points) }))
 
-/* ===== UI helpers ===== */
-const maxScore = computed(() =>
-  Math.max(...displayedPlayers.value.map(p => p.score || 0), 1)
-)
-const scorePct = (s) => Math.round((s / maxScore.value) * 100)
+  // 依分數高到低排序；同分以名稱字典序（穩定一點）
+  clean.sort((a, b) => (b.score - a.score) || a.name.localeCompare(b.name))
 
-const medalClass = (rank) =>
-  rank === 1 ? "is-gold" : rank === 2 ? "is-silver" : rank === 3 ? "is-bronze" : ""
+  // 指定名次（1 起算）；若需要「同分同名次」規則可改成 dense ranking
+  return clean.map((p, i) => ({ rank: i + 1, ...p }))
+}
+
+async function fetchAllScores() {
+  loading.value = true
+  errorMsg.value = null
+  try {
+    const { authHeader } = useAuth()
+    // Build a Headers instance to avoid leaving undefined values in a plain object
+    const headers = new Headers()
+    headers.set('Accept', 'application/json')
+    const ah = authHeader()
+    if (ah && typeof ah === 'object') {
+      // authHeader() may include Authorization (or authorization) or other keys;
+      // only copy string-valued Authorization into Headers to satisfy typing.
+      if (typeof (ah as any).Authorization === 'string') {
+        headers.set('Authorization', (ah as any).Authorization)
+      } else if (typeof (ah as any).authorization === 'string') {
+        headers.set('Authorization', (ah as any).authorization)
+      }
+    }
+    const r = await fetch(GET_ALL_SCORES_URL, { headers })
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+
+    // 後端規範：{ data: ApiRow[] }
+    const j = (await r.json()) as ApiResp
+    const rows: ApiRow[] = Array.isArray(j?.data) ? j.data : []
+
+    const players = mapApiToPlayers(rows)
+    allPlayers.value = players
+
+    // 嘗試以登入者名稱套用 user 列；取不到就用第一名/或空
+    const myName =
+      (authHeader() as any)?.username || (authHeader() as any)?.user || '' // 如果你的 useAuth 有提供
+    const found = myName ? players.find(p => p.name === myName) : undefined
+    user.value = found ?? players[0] ?? { name: '—', rank: 0, score: 0 }
+  } catch (e: any) {
+    errorMsg.value = e?.message ?? '讀取排行榜失敗'
+    allPlayers.value = []
+    user.value = { name: '—', rank: 0, score: 0 }
+  } finally {
+    loading.value = false
+    // 取完資料後更新一次高亮狀態
+    requestAnimationFrame(() => handleScroll())
+  }
+}
+
+/* ===== 生命週期 ===== */
+onMounted(() => {
+  fetchAllScores()
+  // 初次進入計算一次
+  requestAnimationFrame(() => handleScroll())
+})
+
+/* ===== 導出供 template 使用（保持你原本的名稱） ===== */
 </script>
+
 
 <style scoped>
 /* ========= Theme & layout constants ========= */
