@@ -1,25 +1,31 @@
 <template>
   <div class="leaderboard-card">
-    <!-- Top bar（固定高度，避免壓縮） -->
+    <!-- Top bar -->
     <div class="lb-topbar">
       <div class="lb-title">
         <span class="dot"></span>
         Taipei Sports — Leaderboard
       </div>
-    <div class="lb-subtitle">userk</div>
+      <div class="lb-subtitle">
+        User: {{ displayUserName }}
+      </div>
       <div class="lb-subtitle"></div>
     </div>
 
-    <!-- 使用者列（黏在 topbar 下方） -->
-    <div class="User grid-3" :class="{ highlight: isUserHighlighted }" ref="userRow">
-      <div class="rank-col">{{ user.rank }}</div>
-      <div class="name-col">{{ user.name }}</div>
+    <!-- 使用者列（始終顯示本人，不在榜上則 rank 顯示 —、score 顯示 0） -->
+    <div
+      class="User grid-3"
+      :class="{ highlight: isUserHighlighted }"
+      ref="userRow"
+    >
+      <div class="rank-col">{{ userView.rank || '—' }}</div>
+      <div class="name-col">{{ userView.name }}</div>
       <div class="score-col">
-        <div class="score-num">{{ user.score }}</div>
+        <div class="score-num">{{ userView.score }}</div>
       </div>
     </div>
 
-    <!-- 標題列（再往下黏，位移 = topbar + user） -->
+    <!-- 標題列 -->
     <div class="headerRow grid-3">
       <div class="rank-col">Rank</div>
       <div class="name-col">Name</div>
@@ -32,13 +38,12 @@
         v-for="p in displayedPlayers"
         :key="p.name"
         class="player grid-3"
-        :class="[ p.name === user.name ? 'userRow' : '', medalClass(p.rank) ]"
+        :class="[ p.name === userView.name ? 'userRow' : '', medalClass(p.rank) ]"
       >
         <div class="rank-col">{{ p.rank }}</div>
 
         <div class="name-col">
           <div class="name-wrapper">
-            <!-- 冠軍皇冠（左上角，不佔版面） -->
             <span class="crown" v-if="p.rank === 1">👑</span>
             <span class="crown silver" v-else-if="p.rank === 2">👑</span>
             <span class="crown bronze" v-else-if="p.rank === 3">👑</span>
@@ -61,7 +66,6 @@
   </div>
 </template>
 
-
 <script setup lang="ts">
 import { ref, computed, onMounted, shallowRef } from 'vue'
 import { useAuth } from '@/composables/useAuth'
@@ -72,7 +76,6 @@ const GET_ALL_SCORES_URL = `${API_BASE}/api/getallscores`
 
 type ApiRow = { id: number; Username: string; Points: number }
 type ApiResp = { data: ApiRow[] }
-
 type Player = { rank: number; name: string; score: number }
 
 /* ===== 狀態 ===== */
@@ -82,8 +85,28 @@ const errorMsg = ref<string | null>(null)
 /** 排行資料（映射後） */
 const allPlayers = shallowRef<Player[]>([])
 
-/** 使用者資料（會嘗試套用登入者名稱） */
-const user = ref<Player>({ name: '—', rank: 0, score: 0 })
+/* ===== 從登入資訊推測本人名稱 ===== */
+const { authHeader } = useAuth()
+const ah = authHeader() as any
+const myName = ref<string>(ah?.username || ah?.user || ah?.name || '—')
+
+/** 在排行榜中找「本人」；找不到回 null */
+const currentUserOnBoard = computed<Player | null>(() => {
+  return allPlayers.value.find(p => p.name === myName.value) ?? null
+})
+
+/** 畫面顯示的使用者列：永遠顯示本人（沒上榜 rank=0, score=0） */
+const userView = computed<Player>(() => {
+  const found = currentUserOnBoard.value
+  return {
+    name: myName.value || '—',
+    rank: found?.rank ?? 0,
+    score: found?.score ?? 0,
+  }
+})
+
+/** Topbar 顯示名稱 */
+const displayUserName = computed(() => userView.value.name)
 
 /** 顯示前 N 名；資料量不大時直接全顯示 */
 const displayedPlayers = computed(() => {
@@ -99,7 +122,7 @@ const scorePct = (s: number) => Math.round((s / maxScore.value) * 100)
 const medalClass = (rank: number) =>
   rank === 1 ? 'is-gold' : rank === 2 ? 'is-silver' : rank === 3 ? 'is-bronze' : ''
 
-/* ===== 目前使用者高亮（保持你原本的行為） ===== */
+/* ===== 使用者列高亮判定 ===== */
 const isUserHighlighted = ref(false)
 const rankDisplay = ref<HTMLElement | null>(null)
 const userRow = ref<HTMLElement | null>(null)
@@ -111,60 +134,39 @@ const handleScroll = () => {
   isUserHighlighted.value = userTop >= listRect.top && userTop <= listRect.bottom
 }
 
-/* ===== 取資料並映射 ===== */
+/* ===== 將 /getallscores 轉為 Player[] ===== */
 function mapApiToPlayers(rows: ApiRow[]): Player[] {
-  // 避免髒資料：只吃有 Username、Points 的列
   const clean = rows
     .filter(r => r && typeof r.Username === 'string' && Number.isFinite(r.Points))
     .map(r => ({ name: r.Username, score: Number(r.Points) }))
 
-  // 依分數高到低排序；同分以名稱字典序（穩定一點）
   clean.sort((a, b) => (b.score - a.score) || a.name.localeCompare(b.name))
-
-  // 指定名次（1 起算）；若需要「同分同名次」規則可改成 dense ranking
   return clean.map((p, i) => ({ rank: i + 1, ...p }))
 }
 
+/* ===== 抓取排行榜並更新 ===== */
 async function fetchAllScores() {
   loading.value = true
   errorMsg.value = null
   try {
-    const { authHeader } = useAuth()
-    // Build a Headers instance to avoid leaving undefined values in a plain object
+    // 用 Headers 實例避免把 undefined 塞進去
     const headers = new Headers()
     headers.set('Accept', 'application/json')
-    const ah = authHeader()
-    if (ah && typeof ah === 'object') {
-      // authHeader() may include Authorization (or authorization) or other keys;
-      // only copy string-valued Authorization into Headers to satisfy typing.
-      if (typeof (ah as any).Authorization === 'string') {
-        headers.set('Authorization', (ah as any).Authorization)
-      } else if (typeof (ah as any).authorization === 'string') {
-        headers.set('Authorization', (ah as any).authorization)
-      }
-    }
+    if (typeof ah?.Authorization === 'string') headers.set('Authorization', ah.Authorization)
+    else if (typeof ah?.authorization === 'string') headers.set('Authorization', ah.authorization)
+
     const r = await fetch(GET_ALL_SCORES_URL, { headers })
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
 
-    // 後端規範：{ data: ApiRow[] }
     const j = (await r.json()) as ApiResp
     const rows: ApiRow[] = Array.isArray(j?.data) ? j.data : []
 
-    const players = mapApiToPlayers(rows)
-    allPlayers.value = players
-
-    // 嘗試以登入者名稱套用 user 列；取不到就用第一名/或空
-    const myName =
-      (authHeader() as any)?.username || (authHeader() as any)?.user || '' // 如果你的 useAuth 有提供
-    const found = myName ? players.find(p => p.name === myName) : undefined
-    user.value = found ?? players[0] ?? { name: '—', rank: 0, score: 0 }
+    allPlayers.value = mapApiToPlayers(rows)
   } catch (e: any) {
     errorMsg.value = e?.message ?? '讀取排行榜失敗'
     allPlayers.value = []
-    user.value = { name: '—', rank: 0, score: 0 }
   } finally {
     loading.value = false
-    // 取完資料後更新一次高亮狀態
     requestAnimationFrame(() => handleScroll())
   }
 }
@@ -172,13 +174,9 @@ async function fetchAllScores() {
 /* ===== 生命週期 ===== */
 onMounted(() => {
   fetchAllScores()
-  // 初次進入計算一次
   requestAnimationFrame(() => handleScroll())
 })
-
-/* ===== 導出供 template 使用（保持你原本的名稱） ===== */
 </script>
-
 
 <style scoped>
 /* ========= Theme & layout constants ========= */
