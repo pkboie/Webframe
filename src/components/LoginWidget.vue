@@ -13,9 +13,10 @@ const showPopup = ref(false)
 const popupText = ref('')
 
 const { login } = useAuth()
+const API_BASE   = import.meta.env.VITE_API_BASE as string
 
 async function signup(u: string, p: string) {
-  const r = await fetch('http://localhost:8000/auth/signup', {
+  const r = await fetch(`${API_BASE}/auth/signup`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',

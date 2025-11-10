@@ -129,10 +129,10 @@ async function ensureIconsLoaded() {
 let userMarker: mapboxgl.Marker | null = null
 let destMarker: mapboxgl.Marker | null = null
 const currentDest = ref<[number, number] | null>(null)
+const API_BASE   = import.meta.env.VITE_API_BASE as string
 
 /* ===== 後端資料（外層 data: [...]） ===== */
-const API_BASE = ''
-const DATA_URL = `${API_BASE}/api/dataset`
+const DATA_URL =`${API_BASE}/api/dataset`
 
 type Row = {
   id: number
@@ -739,7 +739,6 @@ async function centerToMe() {
   padding: 0.55rem 0.9rem;
   border-radius: 999px;
   border: 1px solid #475259;
-  backdrop-filter: blur(6px);
   box-shadow: 0 4px 16px rgba(66, 35, 35, 0.12);
   cursor: pointer;
   font-size: 0.95rem;
